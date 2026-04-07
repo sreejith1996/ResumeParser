@@ -64,7 +64,8 @@ streamlit run app.py
 
 Open [http://localhost:8501](http://localhost:8501) in your browser, upload a resume, and view the extracted results.
 
----
+---<img width="1139" height="864" alt="Screenshot 2026-04-07 at 12 45 29 PM copy" src="https://github.com/user-attachments/assets/c676b9f3-05a1-401d-a7be-9e6d8a9c5f47" />
+
 
 ## Option 3 — Docker
 
