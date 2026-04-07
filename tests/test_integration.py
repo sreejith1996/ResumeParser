@@ -8,6 +8,7 @@ from src.resume_extractor import ResumeParserFramework
 from src.parsers.parser import PDFParser, WordParser
 from src.constants import ExtractionField, NEREntityLabel
 from src.models.schema import ResumeData
+from src.strategies.extraction_strategies import NameNERStrategy, EmailRegexStrategy, SkillsLLMStrategy
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -71,7 +72,11 @@ class TestPDFIntegration:
             mock_resp.text = '["Python", "Docker", "Kubernetes"]'
             mock_client.models.generate_content.return_value = mock_resp
 
-            framework = ResumeParserFramework()
+            framework = ResumeParserFramework(extraction_strategy={
+                ExtractionField.NAME: NameNERStrategy(),
+                ExtractionField.EMAIL: EmailRegexStrategy(),
+                ExtractionField.SKILLS: SkillsLLMStrategy(),
+            })
             result = framework.parse_resume(pdf_path)
 
         assert isinstance(result, ResumeData)
@@ -91,7 +96,11 @@ class TestPDFIntegration:
             mock_resp.text = '["Python", "Go"]'
             mock_client.models.generate_content.return_value = mock_resp
 
-            framework = ResumeParserFramework()
+            framework = ResumeParserFramework(extraction_strategy={
+                ExtractionField.NAME: NameNERStrategy(),
+                ExtractionField.EMAIL: EmailRegexStrategy(),
+                ExtractionField.SKILLS: SkillsLLMStrategy(),
+            })
             result = framework.parse_resume(pdf_path)
 
         assert result.email == ""
@@ -108,7 +117,11 @@ class TestPDFIntegration:
             mock_resp.text = '["Python"]'
             mock_client.models.generate_content.return_value = mock_resp
 
-            framework = ResumeParserFramework()
+            framework = ResumeParserFramework(extraction_strategy={
+                ExtractionField.NAME: NameNERStrategy(),
+                ExtractionField.EMAIL: EmailRegexStrategy(),
+                ExtractionField.SKILLS: SkillsLLMStrategy(),
+            })
             result = framework.parse_resume(pdf_path)
 
         assert result.email == "alice@primary.com"
@@ -125,7 +138,11 @@ class TestPDFIntegration:
             mock_resp.text = "[]"
             mock_client.models.generate_content.return_value = mock_resp
 
-            framework = ResumeParserFramework()
+            framework = ResumeParserFramework(extraction_strategy={
+                ExtractionField.NAME: NameNERStrategy(),
+                ExtractionField.EMAIL: EmailRegexStrategy(),
+                ExtractionField.SKILLS: SkillsLLMStrategy(),
+            })
             result = framework.parse_resume(pdf_path)
 
         assert result.skills == []
@@ -148,7 +165,11 @@ class TestPDFIntegration:
             mock_resp.text = "[]"
             mock_client.models.generate_content.return_value = mock_resp
 
-            framework = ResumeParserFramework()
+            framework = ResumeParserFramework(extraction_strategy={
+                ExtractionField.NAME: NameNERStrategy(),
+                ExtractionField.EMAIL: EmailRegexStrategy(),
+                ExtractionField.SKILLS: SkillsLLMStrategy(),
+            })
             result = framework.parse_resume(pdf_path)
 
         assert result.name == ""
@@ -165,7 +186,11 @@ class TestPDFIntegration:
             mock_resp.text = '["Python"]'
             mock_client.models.generate_content.return_value = mock_resp
 
-            framework = ResumeParserFramework()
+            framework = ResumeParserFramework(extraction_strategy={
+                ExtractionField.NAME: NameNERStrategy(),
+                ExtractionField.EMAIL: EmailRegexStrategy(),
+                ExtractionField.SKILLS: SkillsLLMStrategy(),
+            })
             result = framework.parse_resume(pdf_path)
 
         assert result.name == "Alice Brown"
@@ -189,7 +214,11 @@ class TestDOCXIntegration:
             mock_resp.text = '["Python"]'
             mock_client.models.generate_content.return_value = mock_resp
 
-            framework = ResumeParserFramework()
+            framework = ResumeParserFramework(extraction_strategy={
+                ExtractionField.NAME: NameNERStrategy(),
+                ExtractionField.EMAIL: EmailRegexStrategy(),
+                ExtractionField.SKILLS: SkillsLLMStrategy(),
+            })
             result = framework.parse_resume(docx_path)
 
         assert isinstance(result, ResumeData)
@@ -213,7 +242,11 @@ class TestDOCXIntegration:
             mock_resp.text = '["Python"]'
             mock_client.models.generate_content.return_value = mock_resp
 
-            framework = ResumeParserFramework()
+            framework = ResumeParserFramework(extraction_strategy={
+                ExtractionField.NAME: NameNERStrategy(),
+                ExtractionField.EMAIL: EmailRegexStrategy(),
+                ExtractionField.SKILLS: SkillsLLMStrategy(),
+            })
             result = framework.parse_resume(docx_path)
 
         assert result.name == "Alice Brown"
@@ -229,7 +262,11 @@ class TestMainSmoke:
 
         mock_data = ResumeData(name="Alice Brown", email="alice@example.com", skills=["Python"])
 
-        with patch.object(main_module, "load_dotenv"), \
+        with patch("sys.argv", ["main.py", "resume.pdf"]), \
+             patch.object(main_module, "load_dotenv"), \
+             patch.object(main_module, "NameNERStrategy"), \
+             patch.object(main_module, "EmailRegexStrategy"), \
+             patch.object(main_module, "SkillsLLMStrategy"), \
              patch.object(main_module, "ResumeParserFramework") as mock_fw_cls:
             mock_fw = MagicMock()
             mock_fw.parse_resume.return_value = mock_data
@@ -251,16 +288,28 @@ class TestLiveIntegration:
     """
 
     def test_sample_pdf_returns_non_empty_name(self):
-        framework = ResumeParserFramework()
+        framework = ResumeParserFramework(extraction_strategy={
+            ExtractionField.NAME: NameNERStrategy(),
+            ExtractionField.EMAIL: EmailRegexStrategy(),
+            ExtractionField.SKILLS: SkillsLLMStrategy(),
+        })
         result = framework.parse_resume(SAMPLE_PDF)
         assert result.name != ""
 
     def test_sample_pdf_returns_valid_email(self):
-        framework = ResumeParserFramework()
+        framework = ResumeParserFramework(extraction_strategy={
+            ExtractionField.NAME: NameNERStrategy(),
+            ExtractionField.EMAIL: EmailRegexStrategy(),
+            ExtractionField.SKILLS: SkillsLLMStrategy(),
+        })
         result = framework.parse_resume(SAMPLE_PDF)
         assert "@" in result.email
 
     def test_sample_pdf_returns_non_empty_skills(self):
-        framework = ResumeParserFramework()
+        framework = ResumeParserFramework(extraction_strategy={
+            ExtractionField.NAME: NameNERStrategy(),
+            ExtractionField.EMAIL: EmailRegexStrategy(),
+            ExtractionField.SKILLS: SkillsLLMStrategy(),
+        })
         result = framework.parse_resume(SAMPLE_PDF)
         assert len(result.skills) > 0

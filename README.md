@@ -44,6 +44,13 @@ pip install -r requirements.txt
 python main.py path/to/resume.pdf
 ```
 
+Sample resumes are included in the `samples/` directory if you want to try it out quickly:
+
+```bash
+python main.py samples/resume_sample.pdf
+python main.py samples/resume_sample.docx
+```
+
 ---
 
 ## Option 2 — Streamlit (Web UI)
@@ -62,7 +69,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Open [http://localhost:8501](http://localhost:8501) in your browser, upload a resume, and view the extracted results.
+Open [http://localhost:8501](http://localhost:8501) in your browser, upload a resume, and view the extracted results. You can use the sample resumes in the `samples/` directory (`resume_sample.pdf` or `resume_sample.docx`) to try it out.
 
 ---<img width="1139" height="864" alt="Screenshot 2026-04-07 at 12 45 29 PM copy" src="https://github.com/user-attachments/assets/c676b9f3-05a1-401d-a7be-9e6d8a9c5f47" />
 

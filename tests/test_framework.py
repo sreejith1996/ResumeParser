@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from src.resume_extractor import ResumeParserFramework
 from src.models.schema import ResumeData
+from src.constants import ExtractionField
 from src.exceptions import (
     ResumeFileNotFoundException,
     UnsupportedFileTypeException,
@@ -29,8 +30,8 @@ def _patch_framework(
     llm_side_effect=None,
 ):
     """
-    Context manager that patches ParserFactory, NameNERStrategy, and SkillsLLMStrategy
-    so that ResumeParserFramework.parse_resume() can be exercised without real I/O.
+    Returns a (patch_ctx, strategy) tuple. patch_ctx patches ParserFactory only.
+    strategy is a dict of ExtractionField -> mock strategy, ready to pass to ResumeParserFramework.
     """
     if skills is None:
         skills = ["Python"]
@@ -56,93 +57,90 @@ def _patch_framework(
     else:
         mock_llm.extract.return_value = skills
 
+    strategy = {
+        ExtractionField.NAME: mock_ner,
+        ExtractionField.EMAIL: mock_email_strategy,
+        ExtractionField.SKILLS: mock_llm,
+    }
+
     return (
         patch("src.resume_extractor.ParserFactory.get_parser", return_value=mock_parser),
-        patch("src.resume_extractor.NameNERStrategy", return_value=mock_ner),
-        patch("src.resume_extractor.EmailRegexStrategy", return_value=mock_email_strategy),
-        patch("src.resume_extractor.SkillsLLMStrategy", return_value=mock_llm),
+        strategy,
     )
+
+
+def _dummy_strategy():
+    return {
+        ExtractionField.NAME: MagicMock(),
+        ExtractionField.EMAIL: MagicMock(),
+        ExtractionField.SKILLS: MagicMock(),
+    }
 
 
 class TestResumeParserFramework:
     def _run(self, path="resume.pdf", **kwargs):
-        patches = _patch_framework(**kwargs)
-        with patches[0], patches[1], patches[2], patches[3]:
-            framework = ResumeParserFramework()
+        patch_ctx, strategy = _patch_framework(**kwargs)
+        with patch_ctx:
+            framework = ResumeParserFramework(extraction_strategy=strategy)
             return framework.parse_resume(path)
 
-    def test_valid_pdf_returns_resume_data(self, single_page_pdf): 
+    def test_valid_pdf_returns_resume_data(self, single_page_pdf):
         result = self._run(path=single_page_pdf)
         assert isinstance(result, ResumeData)
 
-    def test_valid_docx_returns_resume_data(self, paragraph_docx): 
+    def test_valid_docx_returns_resume_data(self, paragraph_docx):
         result = self._run(path=paragraph_docx)
         assert isinstance(result, ResumeData)
 
-    def test_nonexistent_file_raises_not_found(self): 
+    def test_nonexistent_file_raises_not_found(self):
         with patch(
             "src.resume_extractor.ParserFactory.get_parser",
             side_effect=ResumeFileNotFoundException("not found"),
         ):
-            framework = ResumeParserFramework()
+            framework = ResumeParserFramework(extraction_strategy=_dummy_strategy())
             with pytest.raises(ResumeFileNotFoundException):
                 framework.parse_resume("/nonexistent/path/resume.pdf")
 
-    def test_unsupported_type_raises_exception(self):      
+    def test_unsupported_type_raises_exception(self):
         with patch(
             "src.resume_extractor.ParserFactory.get_parser",
             side_effect=UnsupportedFileTypeException("unsupported"),
         ):
-            framework = ResumeParserFramework()
+            framework = ResumeParserFramework(extraction_strategy=_dummy_strategy())
             with pytest.raises(UnsupportedFileTypeException):
                 framework.parse_resume("resume.txt")
 
-    def test_pdf_parse_failure_raises_pdf_exception(self, single_page_pdf): 
-        patches = _patch_framework(
-            parse_side_effect=PDFParserImportException("pdf failed")
-        )
-        with patches[0], patches[1], patches[2], patches[3]:
-            framework = ResumeParserFramework()
+    def test_pdf_parse_failure_raises_pdf_exception(self, single_page_pdf):
+        patch_ctx, strategy = _patch_framework(parse_side_effect=PDFParserImportException("pdf failed"))
+        with patch_ctx:
+            framework = ResumeParserFramework(extraction_strategy=strategy)
             with pytest.raises(PDFParserImportException):
                 framework.parse_resume(single_page_pdf)
 
     def test_docx_parse_failure_raises_word_exception(self, paragraph_docx):
-        patches = _patch_framework(
-            parse_side_effect=WordParserImportException("docx failed")
-        )
-        with patches[0], patches[1], patches[2], patches[3]:
-            framework = ResumeParserFramework()
+        patch_ctx, strategy = _patch_framework(parse_side_effect=WordParserImportException("docx failed"))
+        with patch_ctx:
+            framework = ResumeParserFramework(extraction_strategy=strategy)
             with pytest.raises(WordParserImportException):
                 framework.parse_resume(paragraph_docx)
 
     def test_spacy_load_failure_raises_spacy_exception(self, single_page_pdf):
-        with patch(
-            "src.resume_extractor.ParserFactory.get_parser",
-        ) as mock_factory, patch(
-            "src.resume_extractor.NameNERStrategy",
-            side_effect=SpacyLoadException("model not found"),
-        ):
-            mock_parser = MagicMock()
-            mock_parser.parse.return_value = RESUME_TEXT
-            mock_factory.return_value = mock_parser
-            framework = ResumeParserFramework()
+        patch_ctx, strategy = _patch_framework(ner_side_effect=SpacyLoadException("model not found"))
+        with patch_ctx:
+            framework = ResumeParserFramework(extraction_strategy=strategy)
             with pytest.raises(SpacyLoadException):
                 framework.parse_resume(single_page_pdf)
 
     def test_llm_api_failure_raises_llm_exception(self, single_page_pdf):
-        patches = _patch_framework(
-            llm_side_effect=LLMException("api down")
-        )
-        with patches[0], patches[1], patches[2], patches[3]:
-            framework = ResumeParserFramework()
+        patch_ctx, strategy = _patch_framework(llm_side_effect=LLMException("api down"))
+        with patch_ctx:
+            framework = ResumeParserFramework(extraction_strategy=strategy)
             with pytest.raises(LLMException):
                 framework.parse_resume(single_page_pdf)
 
-    def test_llm_parse_failure_raises_parse_exception(self, single_page_pdf): 
-        patches = _patch_framework(
-            llm_side_effect=LLMResponseParseException("bad json")
-        )
-        with patches[0], patches[1], patches[2], patches[3]:
-            framework = ResumeParserFramework()
+    def test_llm_parse_failure_raises_parse_exception(self, single_page_pdf):
+        patch_ctx, strategy = _patch_framework(llm_side_effect=LLMResponseParseException("bad json"))
+        with patch_ctx:
+            framework = ResumeParserFramework(extraction_strategy=strategy)
             with pytest.raises(LLMResponseParseException):
                 framework.parse_resume(single_page_pdf)
