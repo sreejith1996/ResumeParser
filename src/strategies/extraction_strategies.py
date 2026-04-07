@@ -7,6 +7,7 @@ from typing import Generic, TypeVar
 from google import genai
 from google.genai import types, errors as genai_errors
 from src.exceptions import LLMException, LLMResponseParseException, SpacyLoadException
+from src.logger import get_logger
 from src.constants import (
     EMAIL_PATTERN,
     GEMINI_API_KEY_ENV,
@@ -22,6 +23,7 @@ from src.constants import (
     SpacyModel,
 )
 
+logger = get_logger()
 
 T = TypeVar('T')
 
@@ -62,15 +64,19 @@ class SkillsLLMStrategy(ExtractionStrategy[list[str]]):
                 )
             )
         except genai_errors.APIError as e:
+            logger.error("Gemini API call failed: %s", e)
             raise LLMException(f"Gemini API call failed: {e}") from e
         try:
             result = json.loads(response.text)
             if not isinstance(result, list):
+                logger.error("Unexpected LLM response type: expected list, got %s", type(result).__name__)
                 raise LLMResponseParseException(f"Expected list, got {type(result).__name__}")
             if not all(isinstance(s, str) and len(s) <= MAX_SKILL_LENGTH for s in result):
+                logger.error("LLM response contained non-string or oversized skill entries")
                 raise LLMResponseParseException("Response contained non-string or oversized skill entries")
             return result
         except json.JSONDecodeError as e:
+            logger.error("Gemini returned invalid JSON: %r", response.text)
             raise LLMResponseParseException(f"Gemini returned invalid JSON: {response.text!r}") from e
         
 class NameNERStrategy(ExtractionStrategy[str]):
@@ -81,13 +87,17 @@ class NameNERStrategy(ExtractionStrategy[str]):
  
     def _load_model(self) -> None:
         try:
+            logger.debug("Loading spaCy model: %s", self._model_name)
             self._nlp = spacy.load(self._model_name)
+            logger.debug("spaCy model loaded successfully")
         except OSError as e:
+            logger.error("spaCy model '%s' not found", self._model_name)
             raise SpacyLoadException(
                 f"spaCy model '{self._model_name}' not found.\n"
                 f"Download it with: python -m spacy download {self._model_name}"
             ) from e
         except Exception as e:
+            logger.error("spaCy loading failed: %s", e)
             raise SpacyLoadException(f"spaCy loading failed: {e}") from e
         
     def extract(self, text: str) -> str:

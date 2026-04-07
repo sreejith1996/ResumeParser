@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-
+import logging
 
 class ExtractionField(str, Enum):
     NAME = "name"
@@ -62,4 +62,14 @@ NAME_MAX_WORDS = 4
 MAX_FILE_SIZE=5 * 1024 * 1024
 MAX_PAGE_COUNT = 3
 MAX_SKILL_LENGTH = 200
+
+
+COLORS = {
+    logging.DEBUG:    "\033[36m",   # cyan
+    logging.INFO:     "\033[32m",   # green
+    logging.WARNING:  "\033[33m",   # yellow
+    logging.ERROR:    "\033[31m",   # red
+    logging.CRITICAL: "\033[1;31m", # bold red
+}
+RESET = "\033[0m"
 
