@@ -18,6 +18,8 @@ from src.constants import (
     NAME_MIN_WORDS,
     NAME_MAX_WORDS,
     MAX_SKILL_LENGTH,
+    MAX_OUTPUT_TOKENS,
+    TEMPRATURE,
     GeminiModel,
     NEREntityLabel,
     SpacyModel,
@@ -55,12 +57,12 @@ class SkillsLLMStrategy(ExtractionStrategy[list[str]]):
         safe_text = self._sanitize(text)
         try:
             response = self.client.models.generate_content(
-                model=GeminiModel.FLASH_LITE,
+                model=GeminiModel.FLASH,
                 contents=safe_text,
                 config=types.GenerateContentConfig(
                     system_instruction=SKILLS_SYSTEM_INSTRUCTION,
-                    max_output_tokens=300,
-                    temperature=0.1,
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                    temperature=TEMPRATURE
                 )
             )
         except genai_errors.APIError as e:
