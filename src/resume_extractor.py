@@ -24,17 +24,17 @@ class ResumeExtractor:
 
 class ResumeParserFramework:
 
+   
+    def __init__(self, extraction_strategy: dict[ExtractionField, ExtractionStrategy]):
+        self._extraction_strategy = extraction_strategy
+
     def parse_resume(self, file_path: str) -> ResumeData:
         logger.info("Parsing resume: %s", file_path)
         parser = ParserFactory.get_parser(file_path=file_path)
         text = parser.parse(file_path)
         logger.debug("Parsed %d characters of text", len(text))
 
-        extractor = ResumeExtractor(extraction_strategy={
-            ExtractionField.NAME: NameNERStrategy(),
-            ExtractionField.EMAIL: EmailRegexStrategy(),
-            ExtractionField.SKILLS: SkillsLLMStrategy(),
-        })
+        extractor = ResumeExtractor(self._extraction_strategy)
 
         result = extractor.extract(text)
         logger.info("Extraction complete")

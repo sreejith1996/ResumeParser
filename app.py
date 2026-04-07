@@ -3,6 +3,8 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 from src.resume_extractor import ResumeParserFramework
+from src.constants import ExtractionField
+from src.strategies.extraction_strategies import NameNERStrategy, EmailRegexStrategy, SkillsLLMStrategy
 
 load_dotenv()
 
@@ -20,7 +22,11 @@ if uploaded_file is not None:
 
     try:
         with st.spinner("Parsing resume..."):
-            framework = ResumeParserFramework()
+            framework = ResumeParserFramework(extraction_strategy={
+                ExtractionField.NAME: NameNERStrategy(),
+                ExtractionField.EMAIL: EmailRegexStrategy(),
+                ExtractionField.SKILLS: SkillsLLMStrategy(),
+            })
             result = framework.parse_resume(tmp_path)
 
         st.success("Parsing complete!")
