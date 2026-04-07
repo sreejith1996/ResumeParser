@@ -2,7 +2,7 @@ import pdfplumber
 import docx
 from abc import ABC, abstractmethod
 from pathlib import Path
-from src.exceptions import PDFParserImportException, WordParserImportException
+from src.exceptions import PDFParserImportException, WordParserImportException, UnsupportedFileTypeException, ResumeFileNotFoundException
 from src.constants import FileExtension
 
 class FileParser(ABC):
@@ -21,7 +21,7 @@ class PDFParser(FileParser):
                         pages.append(text.strip())
             return "\n".join(pages)
         except Exception as e:
-            raise PDFParserImportException(f"PDF parsing failed: {e}")
+            raise PDFParserImportException(f"PDF parsing failed: {e}") from e
         
 class WordParser(FileParser):
     def parse(self, file_path: str):
@@ -44,8 +44,8 @@ class WordParser(FileParser):
     
             return "\n".join(lines)
         except Exception as e:
-            raise WordParserImportException(f"Word parsing failed: {e}")
-    
+            raise WordParserImportException(f"Word parsing failed: {e}") from e
+
 class ParserFactory:
     _registry = {
         FileExtension.PDF: PDFParser,
@@ -54,8 +54,11 @@ class ParserFactory:
 
     @classmethod
     def get_parser(cls, file_path: str) -> FileParser:
-        ext = Path(file_path).suffix
+        path = Path(file_path)
+        if not path.exists():
+            raise ResumeFileNotFoundException(f"File not found: {file_path}")
+        ext = path.suffix.lower()
         parser_class = cls._registry.get(ext)
         if parser_class is None:
-            raise ValueError(f"Unsupported file type: {ext}")
+            raise UnsupportedFileTypeException(f"Unsupported file type: {ext}")
         return parser_class()

@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 from google import genai
 from google.genai import types
-from src.exceptions import LLMException, SpacyLoadException
+from src.exceptions import LLMException, LLMResponseParseException, SpacyLoadException
 from src.constants import (
     EMAIL_PATTERN,
     GEMINI_API_KEY_ENV,
@@ -45,11 +45,12 @@ class SkillsLLMStrategy(ExtractionStrategy[list[str]]):
                 config=types.GenerateContentConfig(system_instruction=SKILLS_SYSTEM_INSTRUCTION)
             )
         except Exception as e:
-            raise LLMException(f"Gemini API call failed {e}")
-        try:    
+            raise LLMException(f"Gemini API call failed: {e}") from e
+        try:
+            #TODO: validate that the json is a list
             return json.loads(response.text)
-        except Exception as e:
-            raise LLMException(f"Gemini returned invalid JSON {response.text}")
+        except json.JSONDecodeError as e:
+            raise LLMResponseParseException(f"Gemini returned invalid JSON: {response.text!r}") from e
         
 class NameNERStrategy(ExtractionStrategy[str]):
     def __init__(self, spacy_model: str = SpacyModel.EN_CORE_WEB_LG):
@@ -60,13 +61,13 @@ class NameNERStrategy(ExtractionStrategy[str]):
     def _load_model(self) -> None:
         try:
             self._nlp = spacy.load(self._model_name)
-        except OSError:
-            raise OSError(
+        except OSError as e:
+            raise SpacyLoadException(
                 f"spaCy model '{self._model_name}' not found.\n"
                 f"Download it with: python -m spacy download {self._model_name}"
-            )
+            ) from e
         except Exception as e:
-            raise SpacyLoadException(f"spaCy loading failed: {e}")
+            raise SpacyLoadException(f"spaCy loading failed: {e}") from e
         
     def extract(self, text: str) -> str:
         # Work with the first NER_HEADER_LINES non-empty lines — the name is almost always there
