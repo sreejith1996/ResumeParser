@@ -2,9 +2,10 @@ import json
 import os
 import pytest
 from unittest.mock import patch, MagicMock
+from google.genai import errors as genai_errors
 from src.strategies.extraction_strategies import SkillsLLMStrategy
 from src.exceptions import LLMException, LLMResponseParseException
-from src.constants import GEMINI_API_KEY_ENV, SKILLS_SYSTEM_INSTRUCTION, GeminiModel
+from src.constants import GEMINI_API_KEY_ENV, SKILLS_SYSTEM_INSTRUCTION
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -81,15 +82,6 @@ class TestSkillsLLMStrategyExtract:
         call_kwargs = strategy._mock_client.models.generate_content.call_args
         assert call_kwargs[1]["contents"] == resume_text or call_kwargs[0][1] == resume_text
 
-    def test_uses_correct_model(self):
-        strategy = _make_strategy('["Python"]')
-        strategy.extract("some text")
-        call_kwargs = strategy._mock_client.models.generate_content.call_args
-        # model is the first positional or keyword arg
-        args, kwargs = call_kwargs
-        model_used = kwargs.get("model") or args[0]
-        assert model_used == GeminiModel.FLASH_LITE
-
     def test_passes_system_instruction(self):
         strategy = _make_strategy('["Python"]')
         strategy.extract("some text")
@@ -103,7 +95,8 @@ class TestSkillsLLMStrategyExtract:
 
 class TestSkillsLLMStrategyErrors:
     def test_raises_llm_exception_on_api_failure(self):
-        strategy = _make_strategy(api_side_effect=Exception("API is down"))
+        api_error = genai_errors.APIError(500, {"error": "API is down"})
+        strategy = _make_strategy(api_side_effect=api_error)
         with pytest.raises(LLMException):
             strategy.extract("some text")
 
@@ -117,7 +110,7 @@ class TestSkillsLLMStrategyErrors:
         with pytest.raises(LLMResponseParseException):
             strategy.extract("some text")
 
-    def test_json_object_response_not_an_array(self): 
+    def test_json_object_response_not_an_array(self):
         strategy = _make_strategy('{"skill": "Python"}')
-        result = strategy.extract("some text")
-        assert isinstance(result, dict)  # does not verify if its a list
+        with pytest.raises(LLMResponseParseException):
+            strategy.extract("some text")

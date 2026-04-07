@@ -84,3 +84,19 @@ docker run -p 8501:8501 --env-file .env resume-parser
 ```
 
 Open [http://localhost:8501](http://localhost:8501) in your browser.
+
+---
+
+## Running Tests
+
+**Install dependencies** (same as above if not already done), then:
+
+```bash
+pytest tests
+```
+
+Tests that require real API keys or models are excluded by default. To run them:
+
+```bash
+pytest tests -m live
+```

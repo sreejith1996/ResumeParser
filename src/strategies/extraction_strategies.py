@@ -51,13 +51,13 @@ class SkillsLLMStrategy(ExtractionStrategy[list[str]]):
             PROMPT_INJECTION_PATTERNS.sub("[removed]", line)
             for line in lines
         ]
-        return f"<resume>\n{chr(10).join(cleaned)}\n</resume>"
+        return chr(10).join(cleaned)
 
     def extract(self, text: str) -> list[str]:
         safe_text = self._sanitize(text)
         try:
             response = self.client.models.generate_content(
-                model=GeminiModel.FLASH,
+                model=GeminiModel.FLASH_LITE,
                 contents=safe_text,
                 config=types.GenerateContentConfig(
                     system_instruction=SKILLS_SYSTEM_INSTRUCTION,
