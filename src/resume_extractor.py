@@ -8,7 +8,7 @@ logger = get_logger()
 
 
 class ResumeExtractor:
-    def __init__(self, extraction_strategy: dict[ExtractionField, ExtractionStrategy]) -> ResumeData:
+    def __init__(self, extraction_strategy: dict[ExtractionField, ExtractionStrategy]):
         self.extraction_strategy = extraction_strategy
 
     def extract(self, text: str) -> ResumeData:

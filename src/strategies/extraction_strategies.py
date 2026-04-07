@@ -19,7 +19,7 @@ from src.constants import (
     NAME_MAX_WORDS,
     MAX_SKILL_LENGTH,
     MAX_OUTPUT_TOKENS,
-    TEMPRATURE,
+    TEMPERATURE,
     GeminiModel,
     NEREntityLabel,
     SpacyModel,
@@ -57,12 +57,12 @@ class SkillsLLMStrategy(ExtractionStrategy[list[str]]):
         safe_text = self._sanitize(text)
         try:
             response = self.client.models.generate_content(
-                model=GeminiModel.FLASH_LITE,
+                model=GeminiModel.FLASH,
                 contents=safe_text,
                 config=types.GenerateContentConfig(
                     system_instruction=SKILLS_SYSTEM_INSTRUCTION,
                     max_output_tokens=MAX_OUTPUT_TOKENS,
-                    temperature=TEMPRATURE
+                    temperature=TEMPERATURE
                 )
             )
         except genai_errors.APIError as e:
@@ -135,6 +135,6 @@ class NameNERStrategy(ExtractionStrategy[str]):
     
 class NameRegexStrategy(ExtractionStrategy[str]):
     def extract(self, text: str) -> str:
-        pass
+        raise NotImplementedError
     
 
