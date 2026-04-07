@@ -5,16 +5,18 @@ import json
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 from google import genai
-from google.genai import types
+from google.genai import types, errors as genai_errors
 from src.exceptions import LLMException, LLMResponseParseException, SpacyLoadException
 from src.constants import (
     EMAIL_PATTERN,
     GEMINI_API_KEY_ENV,
     SKILLS_SYSTEM_INSTRUCTION,
+    PROMPT_INJECTION_PATTERNS,
     NER_HEADER_LINES,
     NAME_FALLBACK_LINES,
     NAME_MIN_WORDS,
     NAME_MAX_WORDS,
+    MAX_SKILL_LENGTH,
     GeminiModel,
     NEREntityLabel,
     SpacyModel,
@@ -33,22 +35,41 @@ class EmailRegexStrategy(ExtractionStrategy[str]):
         match = EMAIL_PATTERN.search(text)
         return match.group(0).lower() if match else ""
 
+
 class SkillsLLMStrategy(ExtractionStrategy[list[str]]):
     def __init__(self):
         self.client = genai.Client(api_key=os.getenv(GEMINI_API_KEY_ENV, default=None))
 
+    @staticmethod
+    def _sanitize(text: str) -> str:
+        lines = text.splitlines()
+        cleaned = [
+            PROMPT_INJECTION_PATTERNS.sub("[removed]", line)
+            for line in lines
+        ]
+        return f"<resume>\n{chr(10).join(cleaned)}\n</resume>"
+
     def extract(self, text: str) -> list[str]:
+        safe_text = self._sanitize(text)
         try:
             response = self.client.models.generate_content(
                 model=GeminiModel.FLASH_LITE,
-                contents=text,
-                config=types.GenerateContentConfig(system_instruction=SKILLS_SYSTEM_INSTRUCTION)
+                contents=safe_text,
+                config=types.GenerateContentConfig(
+                    system_instruction=SKILLS_SYSTEM_INSTRUCTION,
+                    max_output_tokens=300,
+                    temperature=0.1,
+                )
             )
-        except Exception as e:
+        except genai_errors.APIError as e:
             raise LLMException(f"Gemini API call failed: {e}") from e
         try:
-            #TODO: validate that the json is a list
-            return json.loads(response.text)
+            result = json.loads(response.text)
+            if not isinstance(result, list):
+                raise LLMResponseParseException(f"Expected list, got {type(result).__name__}")
+            if not all(isinstance(s, str) and len(s) <= MAX_SKILL_LENGTH for s in result):
+                raise LLMResponseParseException("Response contained non-string or oversized skill entries")
+            return result
         except json.JSONDecodeError as e:
             raise LLMResponseParseException(f"Gemini returned invalid JSON: {response.text!r}") from e
         

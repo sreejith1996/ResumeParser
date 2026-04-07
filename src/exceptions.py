@@ -18,3 +18,6 @@ class UnsupportedFileTypeException(Exception):
 
 class ResumeFileNotFoundException(Exception):
     pass
+
+class ResumeTooLongException(Exception):
+    pass
